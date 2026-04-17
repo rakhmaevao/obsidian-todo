@@ -343,12 +343,29 @@ function sortRulesBySpecificity(rules: HighlightRule[]): HighlightRule[] {
 }
 
 function buildStyleAttribute(backgroundColor: string): string {
-	return `--todo-paragraph-bg: ${normalizeColor(backgroundColor)}; --todo-paragraph-fg: ${TEXT_COLOR};`;
+	const normalizedColor = normalizeColor(backgroundColor);
+	return `--todo-paragraph-bg: ${normalizedColor}; --todo-paragraph-bg-active: ${darkenColor(normalizedColor, 0.14)}; --todo-paragraph-fg: ${TEXT_COLOR};`;
 }
 
 function normalizeColor(color: string): string {
 	const value = (color ?? "").trim();
 	return value.length > 0 ? value : "#d97706";
+}
+
+function darkenColor(color: string, amount: number): string {
+	const normalized = normalizeColor(color);
+	const hexMatch = normalized.match(/^#([0-9a-fA-F]{6})$/);
+	if (!hexMatch) {
+		return normalized;
+	}
+
+	const hex = hexMatch[1];
+	const channels = [0, 2, 4].map((index) => {
+		const channel = Number.parseInt(hex.slice(index, index + 2), 16);
+		return Math.max(0, Math.round(channel * (1 - amount)));
+	});
+
+	return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function isBlankLine(line: string): boolean {

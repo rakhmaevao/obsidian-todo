@@ -18,12 +18,26 @@
 }
 
 .cm-line.todo-paragraph-highlight {
-	color: var(--todo-paragraph-fg);
+	background-color: var(--todo-paragraph-bg) !important;
+	color: var(--todo-paragraph-fg) !important;
 }
 
 .cm-line.todo-paragraph-highlight .cm-formatting-code,
 .cm-line.todo-paragraph-highlight .cm-inline-code {
 	color: inherit;
+}
+
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight span {
+	color: inherit;
+}
+
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-active,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine .cm-active,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine > span,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine span {
+	background-color: var(--todo-paragraph-bg-active) !important;
+	color: var(--todo-paragraph-fg) !important;
 }
 
 .cm-line.todo-paragraph-highlight:not(.todo-paragraph-start):not(.todo-paragraph-end) {
@@ -43,4 +57,3 @@
 .cm-line.todo-paragraph-highlight.todo-paragraph-start.todo-paragraph-end {
 	border-radius: 6px;
 }
-
