@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-todo",
+  "name": "Obsidian TODO",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Highlights markdown paragraphs that start with configured TODO-like prefixes.",
+  "author": "OpenAI Codex",
+  "authorUrl": "https://openai.com",
+  "isDesktopOnly": false
+}

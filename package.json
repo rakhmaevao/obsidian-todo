@@ -1,0 +1,28 @@
+{
+  "name": "obsidian-todo",
+  "version": "0.1.0",
+  "description": "Obsidian plugin that highlights paragraphs starting with TODO-like keywords.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "todo"
+  ],
+  "author": "OpenAI Codex",
+  "license": "MIT",
+  "devDependencies": {
+    "@codemirror/language": "^6.11.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@types/node": "^20.17.50",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.3",
+    "obsidian": "^1.8.7",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
+  }
+}

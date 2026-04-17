@@ -1,0 +1,46 @@
+.todo-paragraph-highlight {
+	--todo-paragraph-bg: #d97706;
+	--todo-paragraph-fg: #ffffff;
+	background-color: var(--todo-paragraph-bg);
+	color: var(--todo-paragraph-fg);
+}
+
+.markdown-rendered p.todo-paragraph-highlight {
+	border-radius: 6px;
+	padding: 0.35rem 0.55rem;
+}
+
+.markdown-rendered p.todo-paragraph-highlight a,
+.markdown-rendered p.todo-paragraph-highlight strong,
+.markdown-rendered p.todo-paragraph-highlight em,
+.markdown-rendered p.todo-paragraph-highlight code {
+	color: inherit;
+}
+
+.cm-line.todo-paragraph-highlight {
+	color: var(--todo-paragraph-fg);
+}
+
+.cm-line.todo-paragraph-highlight .cm-formatting-code,
+.cm-line.todo-paragraph-highlight .cm-inline-code {
+	color: inherit;
+}
+
+.cm-line.todo-paragraph-highlight:not(.todo-paragraph-start):not(.todo-paragraph-end) {
+	border-radius: 0;
+}
+
+.cm-line.todo-paragraph-highlight.todo-paragraph-start {
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
+}
+
+.cm-line.todo-paragraph-highlight.todo-paragraph-end {
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
+}
+
+.cm-line.todo-paragraph-highlight.todo-paragraph-start.todo-paragraph-end {
+	border-radius: 6px;
+}
+
