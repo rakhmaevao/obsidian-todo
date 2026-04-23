@@ -1,49 +1,61 @@
 # Obsidian TODO
 
-Obsidian plugin that highlights markdown paragraphs starting with configured keywords.
+Obsidian plugin that highlights markdown paragraphs starting with configured keywords such as `TODO:` or `FIXME:`. Helps keep action items visible across Reading View, Source Mode, and Live Preview.
 
 ## Features
-- Highlights paragraph starts in:
+- Paragraph-level highlighting in all three view modes:
   - Reading View
-  - Source Mode / Editor
+  - Source Mode
   - Live Preview
-- Matches only paragraphs that start with a configured keyword.
+- Matches only paragraphs whose **first line** starts with a configured keyword.
 - Ignores:
-  - fenced code blocks
-  - inline code-only occurrences
+  - fenced code blocks (` ``` ` and `~~~`)
+  - inline code
   - blockquotes
-  - bullet and ordered lists
-  - markdown task lists
-- Supports configurable rules in the plugin settings:
-  - keyword
+  - bullet, ordered, and task lists
+  - YAML frontmatter
+- Configurable rules in the plugin settings:
+  - keyword (exact match, case-sensitive)
   - background color
+- Text color is chosen automatically for readability against the background (WCAG contrast aware).
+- Rules can be reordered, added, and deleted from the settings tab.
 
 ## Default rules
-- `TODO:` with orange background
-- `ТУДУ:` with orange background
-- `FIXME:` with red background
+- `TODO:` — orange (`#ffbd2a`)
+- `ТУДУ:` — orange (`#ffbd2a`)
+- `FIXME:` — pink-red (`#f06292`)
 
-Text color is fixed to white in v1.
-
-## Installation for development
-1. Run `npm install`.
-2. Run `npm run build`.
-3. Create a plugin folder named exactly `obsidian-todo` inside `.obsidian/plugins/`.
-4. Copy these files into `.obsidian/plugins/obsidian-todo/`:
+## Installation (manual)
+1. Build the plugin locally:
+   ```sh
+   npm install
+   npm run build
+   ```
+2. Create a plugin folder named exactly `obsidian-todo` inside your vault's `.obsidian/plugins/` directory.
+3. Copy these files into `.obsidian/plugins/obsidian-todo/`:
    - `manifest.json`
    - `main.js`
    - `styles.css`
-5. Reload Obsidian and enable the plugin in Community Plugins.
+4. Reload Obsidian and enable the plugin under Community Plugins.
 
-You can also run `make prepare-plugin-for-installation` to prepare a folder with the correct plugin id.
+You can also run `make prepare-plugin-for-installation` to stage these files into the local `obsidian-todo/` folder.
 
 ## Settings
-Open the plugin settings tab and edit the list of rules. Each rule contains:
-- keyword
-- background color
+Open the plugin settings tab to edit the list of rules. Each rule has:
+- keyword — matched exactly at the paragraph start
+- background color — color picker, hex
 
-Keyword matching is exact and applies only at the start of a paragraph.
+If two rules share the same keyword, the plugin warns in the description line and the earlier rule wins.
 
 ## Notes
-- If you want `TODO` without a colon, add a separate rule for `TODO`.
-- Inline TODO highlighting is intentionally out of scope for v1.
+- Keyword matching is case-sensitive. Add separate rules for `TODO` and `todo` if you want both.
+- Inline highlighting (mid-paragraph) is intentionally out of scope.
+- The active editor line uses a slightly darker shade of the chosen color for better focus visibility.
+
+## Development
+- `npm run dev` — starts esbuild in watch mode.
+- `npm run build` — runs TypeScript type-check and produces a production bundle.
+- `make prepare-plugin-for-installation` — copies `manifest.json`, `main.js`, and `styles.css` into `obsidian-todo/` for installation testing.
+
+## License
+MIT

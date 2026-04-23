@@ -1,10 +1,18 @@
+/*
+ * Obsidian TODO — paragraph highlight styles.
+ *
+ * Per-rule CSS variables (--todo-paragraph-bg, --todo-paragraph-bg-active,
+ * --todo-paragraph-fg) are injected at runtime by the plugin into a
+ * <style id="todo-paragraph-highlighter-rules"> element. Rule classes
+ * follow the pattern .todo-paragraph-rule-<id>.
+ */
+
 .todo-paragraph-highlight {
-	--todo-paragraph-bg: #d97706;
-	--todo-paragraph-fg: #ffffff;
-	background-color: var(--todo-paragraph-bg);
-	color: var(--todo-paragraph-fg);
+	background-color: var(--todo-paragraph-bg, #ffbd2a);
+	color: var(--todo-paragraph-fg, #ffffff);
 }
 
+/* Reading view ---------------------------------------------------------- */
 .markdown-rendered p.todo-paragraph-highlight {
 	border-radius: 6px;
 	padding: 0.35rem 0.55rem;
@@ -17,35 +25,49 @@
 	color: inherit;
 }
 
-.cm-line.todo-paragraph-highlight {
-	background-color: var(--todo-paragraph-bg);
-	color: var(--todo-paragraph-fg);
+/* Source mode and Live Preview ----------------------------------------- */
+/*
+ * !important is required because Obsidian's default active-line styling
+ * (.cm-active / .cm-activeLine) sets its own background-color with matching
+ * or higher specificity and would otherwise hide our paragraph highlight
+ * while the caret is in the block.
+ */
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight {
+	background-color: var(--todo-paragraph-bg, #ffbd2a) !important;
+	color: var(--todo-paragraph-fg, #ffffff);
 }
 
-.cm-line.todo-paragraph-highlight .cm-formatting-code,
-.cm-line.todo-paragraph-highlight .cm-inline-code {
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight span,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight .cm-formatting-code,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight .cm-inline-code {
 	color: inherit;
 }
 
-.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine,
-.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-active {
-	background-color: var(--todo-paragraph-bg-active);
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-active,
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.cm-activeLine {
+	background-color: var(
+		--todo-paragraph-bg-active,
+		var(--todo-paragraph-bg, #ffbd2a)
+	) !important;
 }
 
-.cm-line.todo-paragraph-highlight:not(.todo-paragraph-start):not(.todo-paragraph-end) {
+/* Rounded corners only on the paragraph edges --------------------------- */
+.markdown-source-view.mod-cm6
+	.cm-line.todo-paragraph-highlight:not(.todo-paragraph-start):not(.todo-paragraph-end) {
 	border-radius: 0;
 }
 
-.cm-line.todo-paragraph-highlight.todo-paragraph-start {
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.todo-paragraph-start {
 	border-top-left-radius: 6px;
 	border-top-right-radius: 6px;
 }
 
-.cm-line.todo-paragraph-highlight.todo-paragraph-end {
+.markdown-source-view.mod-cm6 .cm-line.todo-paragraph-highlight.todo-paragraph-end {
 	border-bottom-left-radius: 6px;
 	border-bottom-right-radius: 6px;
 }
 
-.cm-line.todo-paragraph-highlight.todo-paragraph-start.todo-paragraph-end {
+.markdown-source-view.mod-cm6
+	.cm-line.todo-paragraph-highlight.todo-paragraph-start.todo-paragraph-end {
 	border-radius: 6px;
 }

@@ -1,4 +1,5 @@
 node_modules
 dist
-main.js
 
+# Staged plugin folder produced by `make prepare-plugin-for-installation`
+obsidian-todo/
