@@ -7,7 +7,8 @@ Obsidian plugin that highlights markdown paragraphs starting with configured key
   - Reading View
   - Source Mode
   - Live Preview
-- Matches only paragraphs whose **first line** starts with a configured keyword.
+- Matches paragraphs whose **first line** starts with a configured keyword (whole paragraph is highlighted).
+- Also highlights **inline** markers in the middle of a regular paragraph: from the keyword up to the end of its sentence — the first `.` (kept) or `)` (dropped), whichever comes first.
 - Ignores:
   - fenced code blocks (` ``` ` and `~~~`)
   - inline code
@@ -49,7 +50,7 @@ If two rules share the same keyword, the plugin warns in the description line an
 
 ## Notes
 - Keyword matching is case-sensitive. Add separate rules for `TODO` and `todo` if you want both.
-- Inline highlighting (mid-paragraph) is intentionally out of scope.
+- Inline highlighting covers regular paragraphs only — markers inside blockquotes, list items, and code are skipped.
 - The active editor line uses a slightly darker shade of the chosen color for better focus visibility.
 
 ## Development

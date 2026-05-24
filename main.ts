@@ -1,4 +1,4 @@
-import { RangeSetBuilder, Text } from "@codemirror/state";
+import { Range, Text as DocText } from "@codemirror/state";
 import {
 	Decoration,
 	DecorationSet,
@@ -34,6 +34,17 @@ interface FenceState {
 interface RuleMatch {
 	lineNumbers: number[];
 	rule: HighlightRule;
+}
+
+interface InlineMatch {
+	from: number;
+	to: number;
+	rule: HighlightRule;
+}
+
+interface DocumentScan {
+	paragraphs: RuleMatch[];
+	inline: InlineMatch[];
 }
 
 const DEFAULT_BACKGROUND = "#ffbd2a";
@@ -384,25 +395,101 @@ function applyHighlightToParagraphs(
 		if (paragraph.closest("blockquote, li, pre, code, td, th, details")) {
 			continue;
 		}
+
+		// Drop any inline spans from a previous pass before re-evaluating, so
+		// restyling after a settings change does not stack wrappers.
+		unwrapInlineHighlights(paragraph);
+
 		const text = paragraph.textContent ?? "";
 		const rule = findMatchingRule(text, rules);
 		const previousRuleClass = findRuleClass(paragraph);
 
-		if (!rule) {
-			if (previousRuleClass) {
+		if (rule) {
+			const desiredClass = ruleClassName(rule.id);
+			if (previousRuleClass && previousRuleClass !== desiredClass) {
 				paragraph.removeClass(previousRuleClass);
 			}
-			paragraph.removeClass("todo-paragraph-highlight");
+			paragraph.addClass("todo-paragraph-highlight");
+			paragraph.addClass(desiredClass);
 			continue;
 		}
 
-		const desiredClass = ruleClassName(rule.id);
-		if (previousRuleClass && previousRuleClass !== desiredClass) {
+		// Not a whole-paragraph match: clear block-level classes, then look for
+		// inline markers in the middle of the paragraph.
+		if (previousRuleClass) {
 			paragraph.removeClass(previousRuleClass);
 		}
-		paragraph.addClass("todo-paragraph-highlight");
-		paragraph.addClass(desiredClass);
+		paragraph.removeClass("todo-paragraph-highlight");
+		applyInlineHighlights(paragraph, rules);
 	}
+}
+
+function applyInlineHighlights(
+	paragraph: HTMLElement,
+	rules: HighlightRule[],
+): void {
+	const walker = document.createTreeWalker(
+		paragraph,
+		NodeFilter.SHOW_TEXT,
+	);
+	const textNodes: Text[] = [];
+	let node = walker.nextNode();
+	while (node) {
+		textNodes.push(node as Text);
+		node = walker.nextNode();
+	}
+
+	for (const textNode of textNodes) {
+		if (textNode.parentElement?.closest("code, a")) {
+			continue;
+		}
+		const value = textNode.nodeValue ?? "";
+		const matches = findInlineMatches(value, rules);
+		if (matches.length === 0) {
+			continue;
+		}
+		wrapTextNodeMatches(textNode, value, matches);
+	}
+}
+
+function wrapTextNodeMatches(
+	textNode: Text,
+	value: string,
+	matches: InlineMatch[],
+): void {
+	const fragment = document.createDocumentFragment();
+	let cursor = 0;
+	for (const match of matches) {
+		if (match.from > cursor) {
+			fragment.appendChild(
+				document.createTextNode(value.slice(cursor, match.from)),
+			);
+		}
+		const span = document.createElement("span");
+		span.className = `todo-paragraph-highlight todo-paragraph-inline ${ruleClassName(match.rule.id)}`;
+		span.textContent = value.slice(match.from, match.to);
+		fragment.appendChild(span);
+		cursor = match.to;
+	}
+	if (cursor < value.length) {
+		fragment.appendChild(document.createTextNode(value.slice(cursor)));
+	}
+	textNode.parentNode?.replaceChild(fragment, textNode);
+}
+
+function unwrapInlineHighlights(element: HTMLElement): void {
+	const spans = element.querySelectorAll("span.todo-paragraph-inline");
+	spans.forEach((span) => {
+		const parent = span.parentNode;
+		if (!parent) {
+			return;
+		}
+		while (span.firstChild) {
+			parent.insertBefore(span.firstChild, span);
+		}
+		parent.removeChild(span);
+	});
+	element.normalize();
 }
 
 function findRuleClass(el: HTMLElement): string | null {
@@ -430,18 +517,19 @@ function buildEditorDecorations(
 	view: EditorView,
 	rules: HighlightRule[],
 ): DecorationSet {
-	const builder = new RangeSetBuilder<Decoration>();
 	if (rules.length === 0) {
-		return builder.finish();
+		return Decoration.none;
 	}
 
 	const doc = view.state.doc;
-	const matches = findHighlightParagraphs(doc, rules);
+	const { paragraphs, inline } = scanDocument(doc, rules);
 	const visibleFrom = view.visibleRanges[0]?.from ?? 0;
 	const visibleTo =
 		view.visibleRanges[view.visibleRanges.length - 1]?.to ?? doc.length;
 
-	for (const match of matches) {
+	const ranges: Range<Decoration>[] = [];
+
+	for (const match of paragraphs) {
 		const firstLine = doc.line(match.lineNumbers[0]);
 		const lastLine = doc.line(
 			match.lineNumbers[match.lineNumbers.length - 1],
@@ -464,22 +552,36 @@ function buildEditorDecorations(
 				classes.push("todo-paragraph-end");
 			}
 
-			builder.add(
-				line.from,
-				line.from,
-				Decoration.line({ attributes: { class: classes.join(" ") } }),
+			ranges.push(
+				Decoration.line({
+					attributes: { class: classes.join(" ") },
+				}).range(line.from),
 			);
 		}
 	}
 
-	return builder.finish();
+	for (const match of inline) {
+		if (match.to < visibleFrom || match.from > visibleTo) {
+			continue;
+		}
+		const classes = [
+			"todo-paragraph-highlight",
+			"todo-paragraph-inline",
+			ruleClassName(match.rule.id),
+		];
+		ranges.push(
+			Decoration.mark({
+				attributes: { class: classes.join(" ") },
+			}).range(match.from, match.to),
+		);
+	}
+
+	return Decoration.set(ranges, true);
 }
 
-function findHighlightParagraphs(
-	doc: Text,
-	rules: HighlightRule[],
-): RuleMatch[] {
-	const matches: RuleMatch[] = [];
+function scanDocument(doc: DocText, rules: HighlightRule[]): DocumentScan {
+	const paragraphs: RuleMatch[] = [];
+	const inline: InlineMatch[] = [];
 	let lineNumber = 1;
 	let inFrontmatter = isFrontmatterStart(doc);
 	let activeFence: FenceState | null = null;
@@ -533,13 +635,24 @@ function findHighlightParagraphs(
 
 		const rule = findMatchingRule(line, rules);
 		if (rule) {
-			matches.push({ lineNumbers: paragraphLines, rule });
+			paragraphs.push({ lineNumbers: paragraphLines, rule });
+		} else {
+			for (const ln of paragraphLines) {
+				const docLine = doc.line(ln);
+				for (const m of findInlineMatches(docLine.text, rules)) {
+					inline.push({
+						from: docLine.from + m.from,
+						to: docLine.from + m.to,
+						rule: m.rule,
+					});
+				}
+			}
 		}
 
 		lineNumber = cursor;
 	}
 
-	return matches;
+	return { paragraphs, inline };
 }
 
 function coerceSettings(
@@ -615,6 +728,67 @@ function findMatchingRule(
 	return null;
 }
 
+// Inline matches: a keyword occurring mid-text highlights from the marker up to
+// the end of the sentence — the first `.` (kept) or `)` (dropped), whichever
+// comes first, or the end of the text.
+function findInlineMatches(
+	text: string,
+	rules: HighlightRule[],
+): InlineMatch[] {
+	const found: InlineMatch[] = [];
+	for (const rule of rules) {
+		const keyword = rule.keyword;
+		if (keyword.length === 0) {
+			continue;
+		}
+		let searchFrom = 0;
+		while (true) {
+			const index = text.indexOf(keyword, searchFrom);
+			if (index === -1) {
+				break;
+			}
+			const end = findSentenceEnd(text, index, index + keyword.length);
+			found.push({ from: index, to: end, rule });
+			searchFrom = Math.max(end, index + keyword.length);
+		}
+	}
+	return resolveOverlaps(found);
+}
+
+function findSentenceEnd(text: string, from: number, scanFrom: number): number {
+	let end = text.length;
+	for (let i = scanFrom; i < text.length; i += 1) {
+		const ch = text[i];
+		if (ch === ".") {
+			end = i + 1;
+			break;
+		}
+		if (ch === ")") {
+			end = i;
+			break;
+		}
+	}
+	while (end > from && /\s/.test(text[end - 1])) {
+		end -= 1;
+	}
+	return end;
+}
+
+function resolveOverlaps(matches: InlineMatch[]): InlineMatch[] {
+	const sorted = [...matches].sort(
+		(a, b) => a.from - b.from || b.to - b.from - (a.to - a.from),
+	);
+	const result: InlineMatch[] = [];
+	let lastEnd = -1;
+	for (const match of sorted) {
+		if (match.from >= lastEnd && match.to > match.from) {
+			result.push(match);
+			lastEnd = match.to;
+		}
+	}
+	return result;
+}
+
 function normalizeHexColor(
 	color: string | null | undefined,
 	fallback: string = DEFAULT_BACKGROUND,
@@ -660,7 +834,7 @@ function isBlankLine(line: string): boolean {
 	return line.trim().length === 0;
 }
 
-function isFrontmatterStart(doc: Text): boolean {
+function isFrontmatterStart(doc: DocText): boolean {
 	if (doc.lines === 0) {
 		return false;
 	}

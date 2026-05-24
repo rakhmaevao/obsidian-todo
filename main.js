@@ -28,7 +28,6 @@ __export(main_exports, {
   default: () => TodoParagraphHighlighterPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_state = require("@codemirror/state");
 var import_view = require("@codemirror/view");
 var import_obsidian = require("obsidian");
 var DEFAULT_BACKGROUND = "#ffbd2a";
@@ -318,23 +317,82 @@ function applyHighlightToParagraphs(paragraphs, rules) {
     if (paragraph.closest("blockquote, li, pre, code, td, th, details")) {
       continue;
     }
+    unwrapInlineHighlights(paragraph);
     const text = paragraph.textContent ?? "";
     const rule = findMatchingRule(text, rules);
     const previousRuleClass = findRuleClass(paragraph);
-    if (!rule) {
-      if (previousRuleClass) {
+    if (rule) {
+      const desiredClass = ruleClassName(rule.id);
+      if (previousRuleClass && previousRuleClass !== desiredClass) {
         paragraph.removeClass(previousRuleClass);
       }
-      paragraph.removeClass("todo-paragraph-highlight");
+      paragraph.addClass("todo-paragraph-highlight");
+      paragraph.addClass(desiredClass);
       continue;
     }
-    const desiredClass = ruleClassName(rule.id);
-    if (previousRuleClass && previousRuleClass !== desiredClass) {
+    if (previousRuleClass) {
       paragraph.removeClass(previousRuleClass);
     }
-    paragraph.addClass("todo-paragraph-highlight");
-    paragraph.addClass(desiredClass);
+    paragraph.removeClass("todo-paragraph-highlight");
+    applyInlineHighlights(paragraph, rules);
   }
+}
+function applyInlineHighlights(paragraph, rules) {
+  const walker = document.createTreeWalker(
+    paragraph,
+    NodeFilter.SHOW_TEXT
+  );
+  const textNodes = [];
+  let node = walker.nextNode();
+  while (node) {
+    textNodes.push(node);
+    node = walker.nextNode();
+  }
+  for (const textNode of textNodes) {
+    if (textNode.parentElement?.closest("code, a")) {
+      continue;
+    }
+    const value = textNode.nodeValue ?? "";
+    const matches = findInlineMatches(value, rules);
+    if (matches.length === 0) {
+      continue;
+    }
+    wrapTextNodeMatches(textNode, value, matches);
+  }
+}
+function wrapTextNodeMatches(textNode, value, matches) {
+  const fragment = document.createDocumentFragment();
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.from > cursor) {
+      fragment.appendChild(
+        document.createTextNode(value.slice(cursor, match.from))
+      );
+    }
+    const span = document.createElement("span");
+    span.className = `todo-paragraph-highlight todo-paragraph-inline ${ruleClassName(match.rule.id)}`;
+    span.textContent = value.slice(match.from, match.to);
+    fragment.appendChild(span);
+    cursor = match.to;
+  }
+  if (cursor < value.length) {
+    fragment.appendChild(document.createTextNode(value.slice(cursor)));
+  }
+  textNode.parentNode?.replaceChild(fragment, textNode);
+}
+function unwrapInlineHighlights(element) {
+  const spans = element.querySelectorAll("span.todo-paragraph-inline");
+  spans.forEach((span) => {
+    const parent = span.parentNode;
+    if (!parent) {
+      return;
+    }
+    while (span.firstChild) {
+      parent.insertBefore(span.firstChild, span);
+    }
+    parent.removeChild(span);
+  });
+  element.normalize();
 }
 function findRuleClass(el) {
   for (const cls of Array.from(el.classList)) {
@@ -359,15 +417,15 @@ function renderRuleCss(rule) {
 }`;
 }
 function buildEditorDecorations(view, rules) {
-  const builder = new import_state.RangeSetBuilder();
   if (rules.length === 0) {
-    return builder.finish();
+    return import_view.Decoration.none;
   }
   const doc = view.state.doc;
-  const matches = findHighlightParagraphs(doc, rules);
+  const { paragraphs, inline } = scanDocument(doc, rules);
   const visibleFrom = view.visibleRanges[0]?.from ?? 0;
   const visibleTo = view.visibleRanges[view.visibleRanges.length - 1]?.to ?? doc.length;
-  for (const match of matches) {
+  const ranges = [];
+  for (const match of paragraphs) {
     const firstLine = doc.line(match.lineNumbers[0]);
     const lastLine = doc.line(
       match.lineNumbers[match.lineNumbers.length - 1]
@@ -388,17 +446,33 @@ function buildEditorDecorations(view, rules) {
       if (i === match.lineNumbers.length - 1) {
         classes.push("todo-paragraph-end");
       }
-      builder.add(
-        line.from,
-        line.from,
-        import_view.Decoration.line({ attributes: { class: classes.join(" ") } })
+      ranges.push(
+        import_view.Decoration.line({
+          attributes: { class: classes.join(" ") }
+        }).range(line.from)
       );
     }
   }
-  return builder.finish();
+  for (const match of inline) {
+    if (match.to < visibleFrom || match.from > visibleTo) {
+      continue;
+    }
+    const classes = [
+      "todo-paragraph-highlight",
+      "todo-paragraph-inline",
+      ruleClassName(match.rule.id)
+    ];
+    ranges.push(
+      import_view.Decoration.mark({
+        attributes: { class: classes.join(" ") }
+      }).range(match.from, match.to)
+    );
+  }
+  return import_view.Decoration.set(ranges, true);
 }
-function findHighlightParagraphs(doc, rules) {
-  const matches = [];
+function scanDocument(doc, rules) {
+  const paragraphs = [];
+  const inline = [];
   let lineNumber = 1;
   let inFrontmatter = isFrontmatterStart(doc);
   let activeFence = null;
@@ -441,11 +515,22 @@ function findHighlightParagraphs(doc, rules) {
     }
     const rule = findMatchingRule(line, rules);
     if (rule) {
-      matches.push({ lineNumbers: paragraphLines, rule });
+      paragraphs.push({ lineNumbers: paragraphLines, rule });
+    } else {
+      for (const ln of paragraphLines) {
+        const docLine = doc.line(ln);
+        for (const m of findInlineMatches(docLine.text, rules)) {
+          inline.push({
+            from: docLine.from + m.from,
+            to: docLine.from + m.to,
+            rule: m.rule
+          });
+        }
+      }
     }
     lineNumber = cursor;
   }
-  return matches;
+  return { paragraphs, inline };
 }
 function coerceSettings(loaded) {
   if (loaded === null || typeof loaded !== "object" || !Array.isArray(loaded.rules)) {
@@ -499,6 +584,58 @@ function findMatchingRule(text, sortedRules) {
     }
   }
   return null;
+}
+function findInlineMatches(text, rules) {
+  const found = [];
+  for (const rule of rules) {
+    const keyword = rule.keyword;
+    if (keyword.length === 0) {
+      continue;
+    }
+    let searchFrom = 0;
+    while (true) {
+      const index = text.indexOf(keyword, searchFrom);
+      if (index === -1) {
+        break;
+      }
+      const end = findSentenceEnd(text, index, index + keyword.length);
+      found.push({ from: index, to: end, rule });
+      searchFrom = Math.max(end, index + keyword.length);
+    }
+  }
+  return resolveOverlaps(found);
+}
+function findSentenceEnd(text, from, scanFrom) {
+  let end = text.length;
+  for (let i = scanFrom; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === ".") {
+      end = i + 1;
+      break;
+    }
+    if (ch === ")") {
+      end = i;
+      break;
+    }
+  }
+  while (end > from && /\s/.test(text[end - 1])) {
+    end -= 1;
+  }
+  return end;
+}
+function resolveOverlaps(matches) {
+  const sorted = [...matches].sort(
+    (a, b) => a.from - b.from || b.to - b.from - (a.to - a.from)
+  );
+  const result = [];
+  let lastEnd = -1;
+  for (const match of sorted) {
+    if (match.from >= lastEnd && match.to > match.from) {
+      result.push(match);
+      lastEnd = match.to;
+    }
+  }
+  return result;
 }
 function normalizeHexColor(color, fallback = DEFAULT_BACKGROUND) {
   const value = (color ?? "").trim().toLowerCase();

@@ -12,6 +12,22 @@
 	color: var(--todo-paragraph-fg, #ffffff);
 }
 
+/* Inline highlight — a TODO marker in the middle of a regular paragraph,
+ * spanning from the marker to the end of its sentence. */
+.markdown-rendered p .todo-paragraph-inline,
+.markdown-source-view.mod-cm6 .cm-line .todo-paragraph-inline {
+	background-color: var(--todo-paragraph-bg, #ffbd2a);
+	color: var(--todo-paragraph-fg, #ffffff);
+	border-radius: 4px;
+	padding: 0 0.15em;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
+}
+
+.markdown-source-view.mod-cm6 .cm-line .todo-paragraph-inline {
+	color: var(--todo-paragraph-fg, #ffffff) !important;
+}
+
 /* Reading view ---------------------------------------------------------- */
 .markdown-rendered p.todo-paragraph-highlight {
 	border-radius: 6px;
